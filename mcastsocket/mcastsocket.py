@@ -63,6 +63,7 @@ if not hasattr( socket, 'IP_ADD_SOURCE_MEMBERSHIP' ):
     socket.IP_ADD_SOURCE_MEMBERSHIP = 39
     socket.IP_DROP_SOURCE_MEMBERSHIP = 40
 
+
 def create_socket( address, TTL=1, loop=True, reuse=True, family=socket.AF_INET ):
     """Create our multicast socket for mDNS usage
 
@@ -100,7 +101,7 @@ def create_socket( address, TTL=1, loop=True, reuse=True, family=socket.AF_INET 
         # interface is) makes the route suddenly start working...
         # However, if you want to bind on just one interface, use the group 
         sock.bind(address)
-    except Exception, err:
+    except Exception as err:
         # Some versions of linux raise an exception even though
         # the SO_REUSE* options have been set, so ignore it
         log.error('Failure binding: %s', err)
@@ -114,7 +115,11 @@ def canonical( sock, ip ):
     else:
         if ip == '':
             ip = '0.0.0.0'
-    return socket.inet_ntop( family, socket.inet_pton( family, ip ))
+    try:
+        return socket.inet_ntop( family, socket.inet_pton( family, ip ))
+    except Exception as err:
+        err.args += (sock,ip)
+        raise
     
 def limit_to_interface( sock, interface_ip ):
     """Restrict multicast operation to the given interface/ip (instead of using routing)
@@ -128,7 +133,7 @@ def limit_to_interface( sock, interface_ip ):
     # TODO: test for nullity, not string representations...
     if interface_ip and interface_ip not in ('0.0.0.0','::',''):
         # listen/send on a single interface...
-        log.debug( 'Limiting multicast to use interface of %s', interface_ip )
+        log.debug( 'Limiting multicast to use interface of %r', interface_ip )
         # Build an ip_mreqn structure...
         if sock.family == socket.AF_INET6:
             sock.setsockopt(
@@ -155,13 +160,13 @@ def allow_reuse( sock, reuse=True ):
         try:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except AttributeError, err:
+        except AttributeError as err:
             # ignore common case where SO_REUSEPORT isn't provided on Linux
             if err.args[0].find('SO_REUSEPORT') > -1:
                 pass
             else:
                 raise
-        except Exception, err:
+        except Exception as err:
             # SO_REUSEADDR should be equivalent to SO_REUSEPORT for
             # multicast UDP sockets (p 731, "TCP/IP Illustrated,
             # Volume 2"), but some BSD-derived systems require
@@ -175,7 +180,13 @@ def allow_reuse( sock, reuse=True ):
     return False
 
 def join_group( sock, group, iface='', ssm=None ):
-    """Add our socket to this multicast group"""
+    """Add our socket to this multicast group
+    
+    sock -- multicast socket as from create_socket 
+    group -- group ip address to join 
+    iface -- iface ip address or '' to use all interfaces 
+    ssm -- if provided, us IGMP v3 joining with source-specific multicast filter
+    """
     log.info( 'Joining multicast group: %s', group )
     # group, local interface an ip_mreqn structure...
     group = canonical( sock,group )
