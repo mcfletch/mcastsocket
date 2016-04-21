@@ -7,7 +7,7 @@ test_mcastsocket
 
 Tests for `mcastsocket` module.
 """
-import socket, select
+import select
 import unittest
 from mcastsocket import mcastsocket
 
@@ -63,16 +63,24 @@ class TestMcastsocket(unittest.TestCase):
             mcastsocket.join_group(
                 sock,
                 group = group,
+                iface='127.0.0.1',
+                # If commented out, we get a failure,
+                # if present, we filter... yay
                 ssm = ssm,
             )
             try:
                 self.send_to_group( group, b'moo' )
                 readable,writable,_ = select.select([sock],[],[],.5)
-                assert not readable, 'Should not have received the message due to ssm filtering'
+                if readable:
+                    (content,address) = sock.recvfrom(65000)
+                assert not readable, ('Should not have received the message due to ssm filtering',address)
             finally:
                 mcastsocket.leave_group(
                     sock,
                     group = group,
+                    iface='127.0.0.1',
+                    # If commented out, we get a failure,
+                    # if present, we filter... yay
                     ssm = ssm,
                 )
         finally:
