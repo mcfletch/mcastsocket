@@ -170,11 +170,7 @@ def allow_reuse( sock, reuse=True ):
             # SO_REUSEADDR should be equivalent to SO_REUSEPORT for
             # multicast UDP sockets (p 731, "TCP/IP Illustrated,
             # Volume 2"), but some BSD-derived systems require
-            # SO_REUSEPORT to be specified explicity.  Also, not all
-            # versions of Python have SO_REUSEPORT available.  So
-            # if you're on a BSD-based system, and haven't upgraded
-            # to Python 2.3 yet, you may find this library doesn't
-            # work as expected.
+            # SO_REUSEPORT to be specified explicity.
             log.debug( 'Ignoring likely spurious error on setting reuse options: %s', err )
         return True
     return False
@@ -197,12 +193,7 @@ def join_group( sock, group, iface='', ssm=None ):
         if ssm:
             # TODO: IPv6 seems to use a totally different socket-level 
             # control for this (using MLDv2)
-            log.warn("Don't yet support ipv6 ssm")
-#            struct += socket.inet_pton(sock.family, ssm )
-#            sock.setsockopt(
-#                socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP,
-#                struct
-#            )
+            raise RuntimeError("Don't currently support ssm on ipv6")
         sock.setsockopt(
             socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP,
             struct
@@ -211,9 +202,11 @@ def join_group( sock, group, iface='', ssm=None ):
         if ssm:
             # apparently /proc/sys/net/ipv4/igmp_max_msf
             # can limit the number of sources per socket
+            log.info('Using ssm: %s', ssm)
             struct += socket.inet_pton(sock.family, ssm )
             sock.setsockopt(
-                socket.IPPROTO_IP, socket.IP_ADD_SOURCE_MEMBERSHIP,
+                socket.IPPROTO_IP, 
+                socket.IP_ADD_SOURCE_MEMBERSHIP,
                 struct
             )
         else:
@@ -228,20 +221,25 @@ def leave_group( sock, group, iface='', ssm=None ):
     iface = canonical( sock,iface )
     struct = socket.inet_pton(sock.family,group) + socket.inet_pton(sock.family,iface)
     if sock.family == socket.AF_INET6:
+        if ssm:
+            raise RuntimeError("Don't currently support ssm on ipv6")
         sock.setsockopt(
-            socket.IPPROTO_IPV6, socket.IPV6_LEAVE_GROUP,
+            socket.IPPROTO_IPV6, 
+            socket.IPV6_LEAVE_GROUP,
             struct
         )
     else:
         if ssm:
             struct += socket.inet_pton(sock.family,ssm)
             sock.setsockopt(
-                socket.IPPROTO_IP, socket.IP_DROP_SOURCE_MEMBERSHIP,
+                socket.IPPROTO_IP, 
+                socket.IP_DROP_SOURCE_MEMBERSHIP,
                 struct,
             )
         else:
             sock.setsockopt(
-                socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP,
+                socket.IPPROTO_IP, 
+                socket.IP_DROP_MEMBERSHIP,
                 struct,
             )
 

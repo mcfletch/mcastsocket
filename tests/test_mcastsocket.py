@@ -33,7 +33,7 @@ class TestMcastsocket(unittest.TestCase):
     def test_create_socket_v2(self):
         sock = mcastsocket.create_socket(
             ('',8000),
-            TTL=5,
+            TTL=5,  
         )
         group = '224.1.1.2'
         mcastsocket.join_group(
@@ -41,7 +41,6 @@ class TestMcastsocket(unittest.TestCase):
             group = group,
         )
         self.send_to_group( group, b'moo' )
-        
         readable,writable,_ = select.select([sock],[],[],.5)
         assert readable, 'Nothing received'
         (content,address) = sock.recvfrom(65000)
@@ -52,6 +51,33 @@ class TestMcastsocket(unittest.TestCase):
             group = group,
         )
         sock.close()
+
+    def test_create_socket_v3(self):
+        sock = mcastsocket.create_socket(
+            ('',8000),
+            TTL=5,
+        )
+        try:
+            group = '224.1.1.2'
+            ssm = '198.51.100.23'
+            mcastsocket.join_group(
+                sock,
+                group = group,
+                ssm = ssm,
+            )
+            try:
+                self.send_to_group( group, b'moo' )
+                readable,writable,_ = select.select([sock],[],[],.5)
+                assert not readable, 'Should not have received the message due to ssm filtering'
+            finally:
+                mcastsocket.leave_group(
+                    sock,
+                    group = group,
+                    ssm = ssm,
+                )
+        finally:
+            sock.close()
+
 
 if __name__ == '__main__':
     import sys
