@@ -16,7 +16,7 @@ Provides a simple interface for configuring multicast socket services
 Sample Usage
 ------------
 
-See docs/sample.py
+See `docs/sample.py <docs/sample.py>`_
 
 .. literalinclude:: docs/sample.py
     :language: python 
