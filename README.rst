@@ -15,13 +15,13 @@ Multicast Socket
 
 Provides a simple interface for configuring multicast socket services
 
-* Free software: ISC license
+* Free software: LGPL 2.1 license 
 * Documentation: https://mcastsocket.readthedocs.org.
 
 Features
 --------
 
-* TODO
+* Provides basic template code for setting up multicast sockets under Python
 
 Credits
 ---------
