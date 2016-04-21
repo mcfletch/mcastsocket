@@ -7,7 +7,7 @@ test_mcastsocket
 
 Tests for `mcastsocket` module.
 """
-import select
+import select, socket
 import unittest
 from mcastsocket import mcastsocket
 
@@ -19,12 +19,17 @@ class TestMcastsocket(unittest.TestCase):
 
     def tearDown(self):
         pass
-    def send_to_group(self,group,message):
-        sock = mcastsocket.create_socket(('127.0.0.1',8000),TTL=5)
+    def send_to_group(self,group,message,family=socket.AF_INET):
+        iface_ip = '127.0.0.1' if family== socket.AF_INET else '::1'
+        sock = mcastsocket.create_socket(
+            (iface_ip,8000),
+            TTL=5,
+            family=family
+        )
         mcastsocket.join_group(
             sock,
             group = group,
-            iface = '127.0.0.1',
+            iface = iface_ip,
         )
         sock.sendto( message, (group,8000))
         _,writable,_ = select.select([],[sock],[],.5)
@@ -85,7 +90,30 @@ class TestMcastsocket(unittest.TestCase):
                 )
         finally:
             sock.close()
-
+    def test_ipv6_basic(self):
+        sock = mcastsocket.create_socket(
+            ('',8000),
+            TTL=5,  
+            family = socket.AF_INET6,
+        )
+        assert sock.family == socket.AF_INET6, sock.family
+        group = 'ff02::2'
+        mcastsocket.join_group(
+            sock,
+            group = group,
+        )
+        self.send_to_group( group, b'moo', family=socket.AF_INET6 )
+        readable,writable,_ = select.select([sock],[],[],.5)
+        assert readable, 'Nothing received'
+        (content,address) = sock.recvfrom(65000)
+        assert content == b'moo', content 
+        assert address == ('::1',8000,0,0), address
+        mcastsocket.leave_group(
+            sock,
+            group = group,
+        )
+        sock.close()
+        
 
 if __name__ == '__main__':
     import sys
