@@ -1,7 +1,6 @@
 from mcastsocket import mcastsocket
 import select
 
-
 def main():
     # bind/listen on all interfaces, send with a TTL of 5
     group,port = '224.1.1.2',8000

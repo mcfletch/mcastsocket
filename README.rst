@@ -20,6 +20,8 @@ Provides a simple interface for configuring multicast socket services
 Sample Usage
 ------------
 
+See docs/sample.py
+
 .. literalinclude:: docs/sample.py
     :language: python 
     :linenos:
