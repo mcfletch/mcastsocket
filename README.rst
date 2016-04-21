@@ -26,8 +26,26 @@ See docs/sample.py
     :language: python 
     :linenos:
 
+Migrating from `zeroconf.mcastsocket`
+--------------------------------------
+
+If you've been using the `forked zeroconf mcastsocket module <https://github.com/mcfletch/pyzeroconf>`_, just update your 
+imports from::
+
+    from zeroconf import mcastsocket 
+
+to::
+
+    from mcastsocket import mcastsocket 
+
+and your code should continue to work.
+
 Credits
 ---------
+
+The original "how to work with multicast" code comes from PyZeroconf. The mcastsocket
+module is largely new-code, but it does derive from the original PyZeroconf, so retains
+its license (LGPL).
 
 This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
 
