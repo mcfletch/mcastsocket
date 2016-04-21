@@ -37,7 +37,7 @@ setup(
                  'mcastsocket'},
     include_package_data=True,
     install_requires=requirements,
-    license="ISCL",
+    license="LGPL",
     zip_safe=False,
     keywords='mcastsocket',
     classifiers=[
