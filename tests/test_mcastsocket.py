@@ -38,14 +38,15 @@ class TestMcastsocket(unittest.TestCase):
         sock.close()
 
     def test_create_socket_v2(self):
+        group = '224.1.1.2'
         sock = mcastsocket.create_socket(
-            ('', 8000),
+            (group, 8000),
             TTL=5,
         )
-        group = '224.1.1.2'
         mcastsocket.join_group(
             sock,
             group=group,
+            iface='127.0.0.1',
         )
         self.send_to_group(group, b'moo')
         readable, writable, _ = select.select([sock], [], [], .5)
@@ -56,16 +57,17 @@ class TestMcastsocket(unittest.TestCase):
         mcastsocket.leave_group(
             sock,
             group=group,
+            iface='127.0.0.1',
         )
         sock.close()
 
     def test_create_socket_v3(self):
+        group = '224.1.1.2'
         sock = mcastsocket.create_socket(
-            ('', 8000),
+            (group, 8000),
             TTL=5,
         )
         try:
-            group = '224.1.1.2'
             ssm = '198.51.100.23'
             mcastsocket.join_group(
                 sock,
@@ -95,16 +97,17 @@ class TestMcastsocket(unittest.TestCase):
             sock.close()
 
     def test_ipv6_basic(self):
+        group = 'ff02::2'
         sock = mcastsocket.create_socket(
             ('', 8000),
             TTL=5,
             family=socket.AF_INET6,
         )
         assert sock.family == socket.AF_INET6, sock.family
-        group = 'ff02::2'
         mcastsocket.join_group(
             sock,
             group=group,
+            iface = '::1',
         )
         self.send_to_group(group, b'moo', family=socket.AF_INET6)
         readable, writable, _ = select.select([sock], [], [], .5)

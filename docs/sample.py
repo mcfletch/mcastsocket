@@ -6,12 +6,13 @@ def main():
     # bind/listen on all interfaces, send with a TTL of 5
     group, port = '224.1.1.2', 8000
     sock = mcastsocket.create_socket(
-        ('', port),
+        (group, port),
         TTL=5,
     )
     mcastsocket.join_group(
         sock,
         group=group,
+        #iface='local_ip_to_listen',
     )
     sock.sendto(b'message', (group, port))
     readable, [], [] = select.select([sock], [], [], .5)
