@@ -24,7 +24,7 @@ test_requirements = [
 
 setup(
     name='mcastsocket',
-    version='1.0.0',
+    version='1.0.1',
     description="Provides a simple interface for configuring multicast socket services",
     long_description=readme + '\n\n' + history,
     author="Mike C. Fletcher",
