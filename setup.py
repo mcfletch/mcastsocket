@@ -41,7 +41,6 @@ setup(
     zip_safe=False,
     keywords='mcastsocket',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)',
         'Natural Language :: English',
