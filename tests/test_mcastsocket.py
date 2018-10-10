@@ -22,16 +22,16 @@ class TestMcastsocket(unittest.TestCase):
         pass
 
     def send_to_group(self, group, message, family=socket.AF_INET):
-        iface_ip = '127.0.0.1' if family == socket.AF_INET else '::1'
+        addr = ('127.0.0.1',8001) if family == socket.AF_INET else ('::1',8001,0,0)
         sock = mcastsocket.create_socket(
-            (iface_ip, 8000),
+            ('',8001) if family == socket.AF_INET else ('',8001,0,3),
             TTL=5,
             family=family
         )
         mcastsocket.join_group(
             sock,
             group=group,
-            iface=iface_ip,
+            iface=addr[0],
         )
         sock.sendto(message, (group, 8000))
         _, writable, _ = select.select([], [sock], [], .5)
@@ -40,7 +40,7 @@ class TestMcastsocket(unittest.TestCase):
     def test_create_socket_v2(self):
         group = '224.1.1.2'
         sock = mcastsocket.create_socket(
-            (group, 8000),
+            ('', 8000),
             TTL=5,
         )
         mcastsocket.join_group(
@@ -53,7 +53,7 @@ class TestMcastsocket(unittest.TestCase):
         assert readable, 'Nothing received'
         (content, address) = sock.recvfrom(65000)
         assert content == b'moo', content
-        assert address == ('127.0.0.1', 8000), address
+        assert address == ('127.0.0.1', 8001), address
         mcastsocket.leave_group(
             sock,
             group=group,
@@ -64,7 +64,7 @@ class TestMcastsocket(unittest.TestCase):
     def test_create_socket_v3(self):
         group = '224.1.1.2'
         sock = mcastsocket.create_socket(
-            (group, 8000),
+            ('', 8000),
             TTL=5,
         )
         try:
@@ -99,7 +99,7 @@ class TestMcastsocket(unittest.TestCase):
     def test_ipv6_basic(self):
         group = 'ff02::2'
         sock = mcastsocket.create_socket(
-            ('', 8000),
+            ('', 8000,0,3),
             TTL=5,
             family=socket.AF_INET6,
         )
@@ -114,7 +114,7 @@ class TestMcastsocket(unittest.TestCase):
         assert readable, 'Nothing received'
         (content, address) = sock.recvfrom(65000)
         assert content == b'moo', content
-        assert address == ('::1', 8000, 0, 0), address
+        assert address[1] == 8001, address
         mcastsocket.leave_group(
             sock,
             group=group,
