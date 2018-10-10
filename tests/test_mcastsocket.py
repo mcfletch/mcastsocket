@@ -10,6 +10,8 @@ Tests for `mcastsocket` module.
 import select
 import socket
 import unittest
+import logging
+log = logging.getLogger(__name__)
 from mcastsocket import mcastsocket
 
 
@@ -20,20 +22,50 @@ class TestMcastsocket(unittest.TestCase):
 
     def tearDown(self):
         pass
-
-    def send_to_group(self, group, message, family=socket.AF_INET):
-        addr = ('127.0.0.1',8001) if family == socket.AF_INET else ('::1',8001,0,0)
+    
+    def send_to_group_v6(self,group,message,family=socket.AF_INET6):
+        iface = 'lo'
+        listen_addr = socket.getaddrinfo(
+            '::', 
+            8001, 
+            socket.AF_INET6, 
+            socket.SOCK_DGRAM
+        )[0][-1]
         sock = mcastsocket.create_socket(
-            ('',8001) if family == socket.AF_INET else ('',8001,0,3),
+            listen_addr,
             TTL=5,
             family=family
         )
         mcastsocket.join_group(
             sock,
             group=group,
-            iface=addr[0],
+            iface=iface,
         )
-        sock.sendto(message, (group, 8000))
+        target = socket.getaddrinfo(
+            group, 
+            8000, 
+            socket.AF_INET6, 
+            socket.SOCK_DGRAM
+        )[0][-1]
+        log.info('Final destination: %s',target)
+        sock.sendto(message, target)
+        _, writable, _ = select.select([], [sock], [], .5)
+        sock.close()
+
+    def send_to_group(self, group, message, family=socket.AF_INET):
+        iface = '127.0.0.1'
+        sock = mcastsocket.create_socket(
+            ('',8001),
+            TTL=5,
+            family=family
+        )
+        mcastsocket.join_group(
+            sock,
+            group=group,
+            iface=iface,
+        )
+        target = (group,8000)
+        sock.sendto(message, target)
         _, writable, _ = select.select([], [sock], [], .5)
         sock.close()
 
@@ -98,8 +130,15 @@ class TestMcastsocket(unittest.TestCase):
 
     def test_ipv6_basic(self):
         group = 'ff02::2'
+        listen_addr = socket.getaddrinfo(
+            '::1', 
+            8000, 
+            socket.AF_INET6, 
+            socket.SOCK_DGRAM
+        )[0][-1]
         sock = mcastsocket.create_socket(
-            ('', 8000,0,3),
+            # group binding does *not* work
+            listen_addr,
             TTL=5,
             family=socket.AF_INET6,
         )
@@ -107,14 +146,15 @@ class TestMcastsocket(unittest.TestCase):
         mcastsocket.join_group(
             sock,
             group=group,
-            iface = '::1',
+            iface = 'lo',
         )
-        self.send_to_group(group, b'moo', family=socket.AF_INET6)
+        self.send_to_group_v6(group, b'moo', family=socket.AF_INET6)
         readable, writable, _ = select.select([sock], [], [], .5)
         assert readable, 'Nothing received'
         (content, address) = sock.recvfrom(65000)
         assert content == b'moo', content
         assert address[1] == 8001, address
+        assert address[0] == '::1', address
         mcastsocket.leave_group(
             sock,
             group=group,

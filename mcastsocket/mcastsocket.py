@@ -56,14 +56,21 @@ To create a multicast socket:
 """
 import socket
 import logging
+import struct
 log = logging.getLogger(__name__)
+try:
+    unicode
+except NameError:
+    unicode = str
 
 if not hasattr(socket, 'IP_ADD_SOURCE_MEMBERSHIP'):
     socket.IP_UNBLOCK_SOURCE = 37
     socket.IP_BLOCK_SOURCE = 38
     socket.IP_ADD_SOURCE_MEMBERSHIP = 39
     socket.IP_DROP_SOURCE_MEMBERSHIP = 40
-
+if_nametoindex =  getattr(socket,'if_nametoindex',None)
+if if_nametoindex is None:
+    from .ifnametoindex import if_nametoindex
 
 def create_socket(address, TTL=1, loop=True, reuse=True, family=socket.AF_INET):
     """Create our multicast socket for mDNS usage
@@ -134,18 +141,30 @@ def limit_to_interface(sock, interface_ip):
     to the system routing tables, so you do not need to set up a 224.0.0.0/4
     route on the system to receive multicast on a given interface if you 
     have bound the socket to anything other than ('',port) or (group,port).
+
+    Note: for ipv6 sockets you must specify the interface name, rather than
+    the interface IP address, as the API uses interface ids to specify the 
+    interface to which to limit.
     """
     # TODO: test for nullity, not string representations...
     if interface_ip and interface_ip not in ('0.0.0.0', '::', ''):
         # listen/send on a single interface...
-        log.debug('Limiting multicast to use interface of %r', interface_ip)
         # Build an ip_mreqn structure...
         if sock.family == socket.AF_INET6:
+            if isinstance(interface_ip,unicode):
+                interface_ip = interface_ip.encode('utf-8')
+            if isinstance(interface_ip,bytes):
+                index = if_nametoindex(interface_ip)
+            else:
+                index = interface_ip
+            log.debug('Limiting multicast to use interface index %r', index)
             sock.setsockopt(
                 socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF,
-                socket.inet_pton(sock.family, interface_ip)
+                #struct.pack('@I',index),
+                index,
             )
         else:
+            log.debug('Limiting multicast to use interface of %r', interface_ip)
             sock.setsockopt(
                 socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
                 socket.inet_pton(sock.family, interface_ip)
@@ -182,6 +201,20 @@ def allow_reuse(sock, reuse=True):
         return True
     return False
 
+def group_struct(sock,group,iface):
+    """Construct a base group structure and resolve iface
+
+    returns iface,structure
+    """
+    group = canonical(sock, group)
+    if sock.family == socket.AF_INET:
+        iface = canonical(sock, iface)
+        structure = socket.inet_pton(sock.family, group) + \
+            socket.inet_pton(sock.family, iface)
+    else:
+        iface = if_nametoindex(iface)
+        structure = socket.inet_pton(sock.family, group) + struct.pack('@I',iface)
+    return iface,structure
 
 def join_group(sock, group, iface='', ssm=None):
     """Add our socket to this multicast group
@@ -193,11 +226,8 @@ def join_group(sock, group, iface='', ssm=None):
     """
     log.info('Joining multicast group: %s', group)
     # group, local interface an ip_mreqn structure...
-    group = canonical(sock, group)
-    iface = canonical(sock, iface)
+    iface,structure = group_struct(sock,group,iface)
     limit_to_interface(sock, iface)
-    struct = socket.inet_pton(sock.family, group) + \
-        socket.inet_pton(sock.family, iface)
     if sock.family == socket.AF_INET6:
         if ssm:
             # TODO: IPv6 seems to use a totally different socket-level
@@ -205,14 +235,14 @@ def join_group(sock, group, iface='', ssm=None):
             raise RuntimeError("Don't currently support ssm on ipv6")
         sock.setsockopt(
             socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP,
-            struct
+            structure
         )
     else:
         if ssm:
             # apparently /proc/sys/net/ipv4/igmp_max_msf
             # can limit the number of sources per socket
             log.info('Using ssm: %s', ssm)
-            struct += socket.inet_pton(sock.family, ssm)
+            structure += socket.inet_pton(sock.family, ssm)
             sock.setsockopt(
                 socket.IPPROTO_IP,
                 socket.IP_ADD_SOURCE_MEMBERSHIP,
@@ -228,29 +258,26 @@ def join_group(sock, group, iface='', ssm=None):
 def leave_group(sock, group, iface='', ssm=None):
     """Remove our socket from this multicast group"""
     log.info('Leaving multicast group: %s', group)
-    group = canonical(sock, group)
-    iface = canonical(sock, iface)
-    struct = socket.inet_pton(sock.family, group) + \
-        socket.inet_pton(sock.family, iface)
+    iface,structure = group_struct(sock,group,iface)
     if sock.family == socket.AF_INET6:
         if ssm:
             raise RuntimeError("Don't currently support ssm on ipv6")
         sock.setsockopt(
             socket.IPPROTO_IPV6,
             socket.IPV6_LEAVE_GROUP,
-            struct
+            structure
         )
     else:
         if ssm:
-            struct += socket.inet_pton(sock.family, ssm)
+            structure += socket.inet_pton(sock.family, ssm)
             sock.setsockopt(
                 socket.IPPROTO_IP,
                 socket.IP_DROP_SOURCE_MEMBERSHIP,
-                struct,
+                structure,
             )
         else:
             sock.setsockopt(
                 socket.IPPROTO_IP,
                 socket.IP_DROP_MEMBERSHIP,
-                struct,
+                structure,
             )
